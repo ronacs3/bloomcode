@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, type CSSProperties } from 'react';
+import { motion } from 'motion/react';
+
 import { useGame } from '@/stores/gameStore';
-import { ALL_PLANTS, PLANTS, TOTAL_SPECIES, type PlantStats } from '@/data/plants';
+import { ALL_PLANTS, FAMILY_LABEL, PLANTS, TOTAL_SPECIES, type Family, type PlantStats } from '@/data/plants';
 import { GENES, RARITY_INFO, RARITY_ORDER, type Rarity } from '@/data/genes';
 import { SOILS, WEATHERS } from '@/data/world';
 import type { ParentSelector } from '@/data/recipes';
@@ -11,15 +13,18 @@ import PlantIcon from '@/components/ui/PlantIcon';
 import { Modal } from '@/components/ui/Overlays';
 
 const STAT_META: { key: keyof PlantStats; icon: string; label: string }[] = [
-  { key: 'growth', icon: '🌱', label: 'Growth' },
-  { key: 'sweetness', icon: '🍯', label: 'Sweetness' },
-  { key: 'size', icon: '📏', label: 'Size' },
-  { key: 'resistance', icon: '🛡️', label: 'Resistance' },
+  { key: 'growth', icon: '🌱', label: 'Sinh trưởng' },
+  { key: 'sweetness', icon: '🍯', label: 'Độ ngọt' },
+  { key: 'size', icon: '📏', label: 'Kích thước' },
+  { key: 'resistance', icon: '🛡️', label: 'Sức đề kháng' },
 ];
 
 function selectorName(sel: ParentSelector, discovered: string[]) {
-  if (sel === '*') return 'any crop';
-  if (sel.startsWith('family:')) return `any ${sel.slice(7)}`;
+  if (sel === '*') return 'bất kỳ nông sản';
+  if (sel.startsWith('family:')) {
+    const fam = sel.slice(7) as Family;
+    return `bất kỳ loại ${FAMILY_LABEL[fam] ?? fam}`;
+  }
   return discovered.includes(sel) ? PLANTS[sel].name : '???';
 }
 
@@ -42,14 +47,14 @@ function Detail({ id, onClose }: { id: string; onClose: () => void }) {
         <p className="muted" style={{ fontWeight: 700, maxWidth: 380 }}>{p.description}</p>
         <div className="row row--wrap" style={{ justifyContent: 'center' }}>
           <span className="chip">🎨 {p.colorGene}</span>
-          <span className="chip">⏱️ {p.days} days</span>
+          <span className="chip">⏱️ {p.days} ngày</span>
           <span className="chip">🪙 {p.cropPrice}</span>
           {p.gene && <span className="chip">{GENES[p.gene].icon} {GENES[p.gene].name}</span>}
         </div>
       </div>
 
       <div className="detail-section">
-        <h4>Base genes</h4>
+        <h4>Gene gốc</h4>
         <div className="detail-stats">
           {STAT_META.map((m) => (
             <div key={m.key} className="statline" title={m.label}>
@@ -61,34 +66,34 @@ function Detail({ id, onClose }: { id: string; onClose: () => void }) {
         </div>
         {best && (
           <p className="muted mt-2" style={{ fontSize: 13, fontWeight: 700 }}>
-            🏅 Best specimen bred: {best.growth}/{best.sweetness}/{best.size}/{best.resistance}
+            🏅 Cá thể tốt nhất từng lai: {best.growth}/{best.sweetness}/{best.size}/{best.resistance}
           </p>
         )}
       </div>
 
       <div className="detail-section">
-        <h4>How to obtain</h4>
-        {isStarter && <div className="recipe-line">🛒 Buy seeds in the Shop</div>}
+        <h4>Cách có được</h4>
+        {isStarter && <div className="recipe-line">🛒 Mua hạt giống ở Cửa hàng</div>}
         {breed.map((r, i) => (
           <div key={`b${i}`} className="recipe-line">
             🧬 {selectorName(r.a, discovered)} + {selectorName(r.b, discovered)}
             {(r.weather || r.catalyst) && (
               <span className="muted">
-                {' '}during {r.weather ? `${WEATHERS[r.weather].icon} ${WEATHERS[r.weather].name}` : '—'}
-                {r.catalyst && ` or with ${GENES[r.catalyst].icon} ${GENES[r.catalyst].name}`}
+                {' '}khi trời {r.weather ? `${WEATHERS[r.weather].icon} ${WEATHERS[r.weather].name}` : '—'}
+                {r.catalyst && ` hoặc dùng ${GENES[r.catalyst].icon} ${GENES[r.catalyst].name}`}
               </span>
             )}
           </div>
         ))}
         {farm.map((m, i) => (
           <div key={`f${i}`} className="recipe-line">
-            🧺 Harvest {selectorName(m.from, discovered)}{' '}
+            🧺 Thu hoạch {selectorName(m.from, discovered)}{' '}
             <span className="muted">
-              {m.weather ? `during ${WEATHERS[m.weather].icon} ${WEATHERS[m.weather].name}` : `on ${SOILS[m.soil!].icon} ${SOILS[m.soil!].name}`}
+              {m.weather ? `khi trời ${WEATHERS[m.weather].icon} ${WEATHERS[m.weather].name}` : `trên ${SOILS[m.soil!].icon} ${SOILS[m.soil!].name}`}
             </span>
           </div>
         ))}
-        {!isStarter && scanner < 2 && <p className="muted mt-2" style={{ fontSize: 12, fontWeight: 700 }}>Upgrade the Gene Scanner to reveal recipes for undiscovered species.</p>}
+        {!isStarter && scanner < 2 && <p className="muted mt-2" style={{ fontSize: 12, fontWeight: 700 }}>Nâng cấp Máy quét Gene để xem công thức của các loài chưa khám phá.</p>}
       </div>
     </Modal>
   );
@@ -108,7 +113,7 @@ function LockedHint({ id }: { id: string }) {
       const cat = r.catalyst ? ` · ${GENES[r.catalyst].icon}` : '';
       return <>🔍 {selectorName(r.a, discovered)} + {selectorName(r.b, discovered)}{cond}{cat}</>;
     }
-    if (m) return <>🔍 Harvest {selectorName(m.from, discovered)} {m.weather ? WEATHERS[m.weather].icon : SOILS[m.soil!].icon}</>;
+    if (m) return <>🔍 Thu hoạch {selectorName(m.from, discovered)} {m.weather ? WEATHERS[m.weather].icon : SOILS[m.soil!].icon}</>;
   }
   // Scanner Lv1 — reveal the condition only
   const conds = [
@@ -136,7 +141,7 @@ export default function GeneDexView() {
           <span className="panel__title-icon" aria-hidden>📖</span>
           <div>
             <h2 id="dex-title">GeneDex</h2>
-            <div className="panel__sub">Every species you have brought to life.</div>
+            <div className="panel__sub">Bộ sưu tập mọi loài cây bạn đã tạo ra.</div>
           </div>
         </div>
         <span className="stat stat--gp"><span className="stat__icon">🧬</span>{gp} GP</span>
@@ -145,13 +150,13 @@ export default function GeneDexView() {
       <div className="dex-head">
         <div className="dex-progress">
           <span className="dex-count">{found} / {TOTAL_SPECIES}</span>
-          <div className="bar" aria-label={`${pct}% complete`}>
+          <div className="bar" aria-label={`Hoàn thành ${pct}%`}>
             <div className="bar__fill" style={{ width: `${pct}%` }} />
           </div>
           <span className="chip">{pct}%</span>
         </div>
-        <div className="tabs" role="tablist" aria-label="Filter by rarity">
-          <button role="tab" id="dex-filter-all" className="tab" aria-selected={filter === 'all'} onClick={() => setFilter('all')}>All</button>
+        <div className="tabs" role="tablist" aria-label="Lọc theo độ hiếm">
+          <button role="tab" id="dex-filter-all" className="tab" aria-selected={filter === 'all'} onClick={() => setFilter('all')}>Tất cả</button>
           {RARITY_ORDER.map((r) => {
             const total = ALL_PLANTS.filter((p) => p.rarity === r).length;
             const got = ALL_PLANTS.filter((p) => p.rarity === r && discovered.includes(p.id)).length;
@@ -181,19 +186,21 @@ export default function GeneDexView() {
             );
           }
           return (
-            <button
+            <motion.button
               key={p.id}
               id={`dex-${p.id}`}
               className={`dex-card dex-card--found ${recent.includes(p.id) && found > 5 ? 'dex-card--new' : ''}`}
               style={{ '--rc': rc } as CSSProperties}
               onClick={() => setOpen(p.id)}
+              whileHover={{ scale: 1.04, y: -2 }}
+              whileTap={{ scale: 0.96 }}
             >
               <span className="dex-card__no">#{String(p.dex).padStart(3, '0')}</span>
               <span className="dex-card__rarity rarity" style={{ '--rc': rc } as CSSProperties}>{RARITY_INFO[p.rarity].label}</span>
               <PlantIcon id={p.id} size={62} />
               <div className="card__name">{p.name}</div>
-              <div className="card__meta">🪙 {p.cropPrice} · ⏱️ {p.days}d</div>
-            </button>
+              <div className="card__meta">🪙 {p.cropPrice} · ⏱️ {p.days} ngày</div>
+            </motion.button>
           );
         })}
       </div>

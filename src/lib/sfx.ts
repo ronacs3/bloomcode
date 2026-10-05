@@ -1,30 +1,45 @@
-/**
- * Tiny synthesized sound effects using the Web Audio API — no audio assets needed.
- */
-export type Sfx = 'till' | 'plant' | 'water' | 'harvest' | 'coin' | 'click' | 'error' | 'breed' | 'discover' | 'mutation' | 'sleep' | 'unlock';
+import { Howler } from 'howler';
 
-let ctx: AudioContext | null = null;
+export type Sfx =
+  | 'till'
+  | 'plant'
+  | 'water'
+  | 'harvest'
+  | 'coin'
+  | 'click'
+  | 'error'
+  | 'breed'
+  | 'discover'
+  | 'mutation'
+  | 'sleep'
+  | 'unlock';
 
-function audio(): AudioContext | null {
+let ambienceOsc: OscillatorNode | null = null;
+let ambienceGain: GainNode | null = null;
+
+let isMutedState = false;
+
+export function setMute(muted: boolean) {
+  isMutedState = muted;
+  Howler.mute(muted);
+}
+
+function getAudioContext(): AudioContext | null {
   if (typeof window === 'undefined') return null;
-  if (!ctx) {
-    const AC = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!AC) return null;
-    ctx = new AC();
-  }
-  if (ctx.state === 'suspended') void ctx.resume();
-  return ctx;
+  return (Howler.ctx as AudioContext) || null;
 }
 
 function tone(freq: number, start: number, dur: number, type: OscillatorType = 'sine', vol = 0.12, slideTo?: number) {
-  const c = audio();
+  const c = getAudioContext();
   if (!c) return;
+  if (c.state === 'suspended') void c.resume();
+
   const t = c.currentTime + start;
   const osc = c.createOscillator();
   const gain = c.createGain();
   osc.type = type;
   osc.frequency.setValueAtTime(freq, t);
-  if (slideTo) osc.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
+  if (slideTo) osc.frequency.exponentialRampToValueAtTime(Math.max(1, slideTo), t + dur);
   gain.gain.setValueAtTime(0.0001, t);
   gain.gain.exponentialRampToValueAtTime(vol, t + 0.015);
   gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
@@ -34,8 +49,10 @@ function tone(freq: number, start: number, dur: number, type: OscillatorType = '
 }
 
 function noise(start: number, dur: number, vol = 0.08, filterFreq = 1200) {
-  const c = audio();
+  const c = getAudioContext();
   if (!c) return;
+  if (c.state === 'suspended') void c.resume();
+
   const t = c.currentTime + start;
   const buffer = c.createBuffer(1, Math.floor(c.sampleRate * dur), c.sampleRate);
   const data = buffer.getChannelData(0);
@@ -52,6 +69,7 @@ function noise(start: number, dur: number, vol = 0.08, filterFreq = 1200) {
 }
 
 export function playSfx(name: Sfx) {
+  if (isMutedState) return;
   switch (name) {
     case 'till':
       noise(0, 0.12, 0.12, 700);
@@ -101,4 +119,23 @@ export function playSfx(name: Sfx) {
       tone(1568, 0.5, 0.6, 'sine', 0.05);
       break;
   }
+}
+
+/** Soft ambient lo-fi drone using Howler's WebAudio context */
+export function startAmbience() {
+  const c = getAudioContext();
+  if (!c || ambienceOsc) return;
+  if (c.state === 'suspended') void c.resume();
+
+  ambienceOsc = c.createOscillator();
+  ambienceGain = c.createGain();
+
+  ambienceOsc.type = 'sine';
+  ambienceOsc.frequency.setValueAtTime(146.83, c.currentTime); // D3 note
+
+  ambienceGain.gain.setValueAtTime(0.001, c.currentTime);
+  ambienceGain.gain.exponentialRampToValueAtTime(0.015, c.currentTime + 3);
+
+  ambienceOsc.connect(ambienceGain).connect(c.destination);
+  ambienceOsc.start();
 }

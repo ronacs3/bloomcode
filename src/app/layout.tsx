@@ -1,11 +1,17 @@
 import type { Metadata, Viewport } from "next";
-import { Fredoka, Nunito } from "next/font/google";
+import { Baloo_2, Nunito, Geist } from "next/font/google";
 import "./globals.css";
+import { cn } from "@/lib/utils";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
-const fredoka = Fredoka({
-  variable: "--font-fredoka",
-  subsets: ["latin"],
-  weight: ["500", "600", "700"],
+const geist = Geist({subsets:['latin'],variable:'--font-sans'});
+
+
+// Baloo 2 — rounded, playful display face with full Vietnamese diacritics support.
+const baloo = Baloo_2({
+  variable: "--font-baloo",
+  subsets: ["latin", "vietnamese"],
+  weight: ["500", "600", "700", "800"],
 });
 
 const nunito = Nunito({
@@ -15,9 +21,9 @@ const nunito = Nunito({
 });
 
 export const metadata: Metadata = {
-  title: "BLOOMCODE — Cozy Gene-Breeding Farm Game",
+  title: "BLOOMCODE — Nông Trại Lai Tạo Gene",
   description:
-    "Plant, harvest and splice plant genes. Breed hybrids, trigger weather mutations and complete the GeneDex in this cozy browser farming game.",
+    "Trồng cây, thu hoạch và lai tạo gene. Tạo ra giống lai, kích hoạt đột biến theo thời tiết và hoàn thành GeneDex trong tựa game nông trại ấm cúng trên trình duyệt.",
 };
 
 export const viewport: Viewport = {
@@ -32,8 +38,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${fredoka.variable} ${nunito.variable}`}>
-      <body>{children}</body>
+    <html lang="vi" className={cn(baloo.variable, nunito.variable, "font-sans", geist.variable)}>
+      <body>
+        <TooltipProvider>{children}</TooltipProvider>
+      </body>
     </html>
   );
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, type CSSProperties } from 'react';
+
 import { useGame } from '@/stores/gameStore';
 import { PLANTS } from '@/data/plants';
 import { GENES, GENE_IDS, RARITY_INFO } from '@/data/genes';
@@ -42,11 +43,11 @@ export default function InventoryView() {
   const isEmpty = counts[filter] === 0;
 
   const TABS: [Filter, string][] = [
-    ['all', '🎒 All'],
-    ['seed', '🌱 Seeds'],
-    ['crop', '🧺 Crops'],
-    ['gene', '🧪 Genes'],
-    ['soil', '🟫 Soil'],
+    ['all', '🎒 Tất cả'],
+    ['seed', '🌱 Hạt giống'],
+    ['crop', '🧺 Nông sản'],
+    ['gene', '🧪 Gene'],
+    ['soil', '🟫 Đất'],
   ];
 
   return (
@@ -55,8 +56,8 @@ export default function InventoryView() {
         <div className="panel__title">
           <span className="panel__title-icon" aria-hidden>🎒</span>
           <div>
-            <h2 id="bag-title">Backpack</h2>
-            <div className="panel__sub">Everything you have grown, bred and collected.</div>
+            <h2 id="bag-title">Túi đồ</h2>
+            <div className="panel__sub">Mọi thứ bạn đã trồng, lai tạo và thu thập.</div>
           </div>
         </div>
         <div className="tabs" role="tablist">
@@ -71,7 +72,7 @@ export default function InventoryView() {
       {isEmpty ? (
         <div className="empty">
           <span className="empty__icon">☁️</span>
-          Nothing here yet.
+          Chưa có gì ở đây.
         </div>
       ) : (
         <div className="grid-cards">
@@ -79,13 +80,13 @@ export default function InventoryView() {
             seedList.map(([id, q]) => (
               <div key={`seed-${id}`} className="card">
                 <span className="card__qty">×{q}</span>
-                <span className="card__badge chip chip--ok">Seed</span>
+                <span className="card__badge chip chip--ok">Hạt</span>
                 <span style={{ position: 'relative' }}>
                   <PlantIcon id={id} size={50} />
                   <span style={{ position: 'absolute', left: -10, bottom: -4, fontSize: 20 }} aria-hidden>🌰</span>
                 </span>
                 <div className="card__name">{PLANTS[id].name}</div>
-                <div className="card__meta">Grows in {PLANTS[id].days} days</div>
+                <div className="card__meta">Lớn sau {PLANTS[id].days} ngày</div>
                 <div className="card__actions">
                   <button
                     id={`bag-plant-${id}`}
@@ -95,7 +96,7 @@ export default function InventoryView() {
                       setView('farm');
                     }}
                   >
-                    Plant
+                    Gieo trồng
                   </button>
                 </div>
               </div>
@@ -110,9 +111,9 @@ export default function InventoryView() {
                   <span className="card__badge rarity" style={{ '--rc': rc } as CSSProperties}>{RARITY_INFO[p.rarity].label}</span>
                   <PlantIcon id={id} size={56} />
                   <div className="card__name">{p.name}</div>
-                  <div className="card__meta">Worth 🪙 {p.cropPrice}</div>
+                  <div className="card__meta">Giá trị 🪙 {p.cropPrice}</div>
                   <div className="card__actions">
-                    <button id={`bag-lab-${id}`} className="btn btn--sm btn--teal" onClick={() => setView('lab')}>Gene Lab</button>
+                    <button id={`bag-lab-${id}`} className="btn btn--sm btn--teal" onClick={() => setView('lab')}>Phòng Gene</button>
                   </div>
                 </div>
               );
@@ -143,7 +144,7 @@ export default function InventoryView() {
                       setView('farm');
                     }}
                   >
-                    Apply
+                    Rải đất
                   </button>
                 </div>
               </div>
@@ -152,18 +153,18 @@ export default function InventoryView() {
       )}
 
       <div className="row row--between row--wrap mt-6" style={{ paddingTop: 16, borderTop: '2px dashed var(--cream-3)' }}>
-        <span className="muted" style={{ fontWeight: 700, fontSize: 13 }}>💾 Progress auto-saves in this browser · Day {day}</span>
-        <button id="reset-save" className="btn btn--sm btn--ghost" onClick={() => setConfirmReset(true)}>Reset save</button>
+        <span className="muted" style={{ fontWeight: 700, fontSize: 13 }}>💾 Tiến trình tự lưu trên trình duyệt này · Ngày {day}</span>
+        <button id="reset-save" className="btn btn--sm btn--ghost" onClick={() => setConfirmReset(true)}>Xoá dữ liệu</button>
       </div>
 
       {confirmReset && (
         <Modal onClose={() => setConfirmReset(false)} labelledBy="reset-title">
           <div className="intro">
             <div className="intro__hero" aria-hidden><span>🥀</span></div>
-            <h2 id="reset-title">Start a brand-new farm?</h2>
-            <p className="muted mt-2" style={{ fontWeight: 700 }}>All crops, coins and GeneDex progress will be lost.</p>
+            <h2 id="reset-title">Bắt đầu một nông trại mới?</h2>
+            <p className="muted mt-2" style={{ fontWeight: 700 }}>Toàn bộ nông sản, xu và tiến trình GeneDex sẽ bị mất.</p>
             <div className="row mt-6" style={{ justifyContent: 'center' }}>
-              <button id="reset-cancel" className="btn btn--ghost" onClick={() => setConfirmReset(false)}>Keep playing</button>
+              <button id="reset-cancel" className="btn btn--ghost" onClick={() => setConfirmReset(false)}>Chơi tiếp</button>
               <button
                 id="reset-confirm"
                 className="btn btn--berry"
@@ -172,7 +173,7 @@ export default function InventoryView() {
                   setConfirmReset(false);
                 }}
               >
-                Reset everything
+                Xoá tất cả
               </button>
             </div>
           </div>

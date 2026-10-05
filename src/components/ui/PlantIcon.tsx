@@ -43,7 +43,7 @@ export default function PlantIcon({ id, size = 48, stage = 'mature', silhouette 
     .join(' ');
 
   return (
-    <span className={classes} style={style} role="img" aria-label={silhouette ? 'Unknown species' : plant.name}>
+    <span className={classes} style={style} role="img" aria-label={silhouette ? 'Loài chưa khám phá' : plant.name}>
       {look.aura && !silhouette && (mature || stage === 'young') && <span className="plant__aura" aria-hidden />}
       <span className="plant__emoji">{emoji}</span>
       {look.badge && mature && !silhouette && <span className="plant__badge" aria-hidden>{look.badge}</span>}

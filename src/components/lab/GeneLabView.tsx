@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import confetti from 'canvas-confetti';
+
 import { useGame, LAB_UPGRADES, type BreedResult, type LabUpgradeId } from '@/stores/gameStore';
 import { PLANTS, type PlantStats } from '@/data/plants';
 import { GENES, GENE_IDS, RARITY_INFO, type GeneId } from '@/data/genes';
@@ -12,10 +14,10 @@ import { Modal } from '@/components/ui/Overlays';
 type Tab = 'breed' | 'extract' | 'upgrades';
 
 const STAT_META: { key: keyof PlantStats; icon: string; label: string }[] = [
-  { key: 'growth', icon: '🌱', label: 'Growth' },
-  { key: 'sweetness', icon: '🍯', label: 'Sweetness' },
-  { key: 'size', icon: '📏', label: 'Size' },
-  { key: 'resistance', icon: '🛡️', label: 'Resistance' },
+  { key: 'growth', icon: '🌱', label: 'Sinh trưởng' },
+  { key: 'sweetness', icon: '🍯', label: 'Độ ngọt' },
+  { key: 'size', icon: '📏', label: 'Kích thước' },
+  { key: 'resistance', icon: '🛡️', label: 'Sức đề kháng' },
 ];
 
 function StatBars({ stats }: { stats: PlantStats }) {
@@ -48,13 +50,13 @@ function Pod({ id, label, onClear, disabled }: { id: string | null; label: strin
         {id ? (
           <div className="pod__content"><PlantIcon id={id} size={76} float /></div>
         ) : (
-          <div className="pod__empty">Select<br />{label}</div>
+          <div className="pod__empty">Chọn<br />{label}</div>
         )}
         {id && !disabled && (
-          <button className="pod__clear" onClick={onClear} aria-label={`Remove ${label}`}>×</button>
+          <button className="pod__clear" onClick={onClear} aria-label={`Bỏ ${label}`}>×</button>
         )}
       </div>
-      <div className="pod__name">{id ? PLANTS[id].name : '— empty —'}</div>
+      <div className="pod__name">{id ? PLANTS[id].name : '— trống —'}</div>
       {id && <StatBars stats={PLANTS[id].stats} />}
     </div>
   );
@@ -114,7 +116,16 @@ function BreedTab() {
       setA(null);
       setB(null);
       setCatalyst(null);
-      if (r) setResult(r);
+      if (r) {
+        setResult(r);
+        if (r.isNew || r.recipe) {
+          void confetti({
+            particleCount: 60,
+            spread: 60,
+            origin: { y: 0.5 },
+          });
+        }
+      }
     }, 2200);
   };
 
@@ -123,7 +134,7 @@ function BreedTab() {
   return (
     <>
       <div className="reactor">
-        <Pod id={validA} label="Parent A" onClear={() => setA(null)} disabled={busy} />
+        <Pod id={validA} label="Cây bố A" onClear={() => setA(null)} disabled={busy} />
 
         <div className={`core ${busy ? 'core--active' : ''}`}>
           <div className="core__ring">
@@ -131,11 +142,11 @@ function BreedTab() {
             <span className="core__dna" aria-hidden>🧬</span>
             <span className="core__beam core__beam--r" />
           </div>
-          <span className="cond" title="Today's weather influences mutations">{w.icon} {w.name}</span>
+          <span className="cond" title="Thời tiết hôm nay ảnh hưởng đến đột biến">{w.icon} {w.name}</span>
           <div className="stack" style={{ alignItems: 'center', gap: 6 }}>
-            <span className="lab-label">Gene catalyst</span>
+            <span className="lab-label">Gene xúc tác</span>
             {geneList.length === 0 ? (
-              <span className="cond">No gene samples yet</span>
+              <span className="cond">Chưa có mẫu gene</span>
             ) : (
               <div className="catalyst">
                 {geneList.map((g) => (
@@ -156,21 +167,21 @@ function BreedTab() {
             )}
           </div>
           <button id="breed-button" className="btn btn--teal btn--lg" disabled={!validA || !validB || busy} onClick={start}>
-            {busy ? 'Splicing…' : 'BREED'}
+            {busy ? 'Đang lai ghép…' : 'LAI GHÉP'}
           </button>
         </div>
 
-        <Pod id={validB} label="Parent B" onClear={() => setB(null)} disabled={busy} />
+        <Pod id={validB} label="Cây mẹ B" onClear={() => setB(null)} disabled={busy} />
       </div>
 
       {validA && validB && (
         <div className="resonance">
-          <span className="lab-label">Gene resonance</span>
+          <span className="lab-label">Cộng hưởng gene</span>
           {recipes.length === 0 ? (
             <p style={{ marginTop: 8, fontWeight: 700, color: '#a9d6d3', fontSize: 14 }}>
               {validA === validB
-                ? '🧫 Cloning — two identical parents produce 2 seeds of the same species.'
-                : '〰️ No resonance. The offspring will inherit genes from one parent.'}
+                ? '🧫 Nhân bản — hai cây giống hệt nhau sẽ cho 2 hạt cùng loài.'
+                : '〰️ Không có cộng hưởng. Cây con sẽ thừa hưởng gene từ một trong hai cây.'}
             </p>
           ) : (
             <div className="resonance__list">
@@ -182,18 +193,18 @@ function BreedTab() {
                   <div key={i} className={`resonance__item ${met ? 'resonance__item--active' : ''}`}>
                     <PlantIcon id={r.result} size={34} silhouette={!known} />
                     <div>
-                      <div>{known ? PLANTS[r.result].name : '??? Unknown species'}</div>
+                      <div>{known ? PLANTS[r.result].name : '??? Loài chưa biết'}</div>
                       <small>
-                        {met ? `${Math.round(clampChance(r.chance + amp) * 100)}% chance` : 'Inactive'}
-                        {isConditional(r) && ' · needs '}
+                        {met ? `${Math.round(clampChance(r.chance + amp) * 100)}% cơ hội` : 'Chưa kích hoạt'}
+                        {isConditional(r) && ' · cần '}
                         {isConditional(r) && (
                           <>
                             {r.weather && (
                               <span className={`cond ${r.weather === weather ? 'cond--met' : ''}`}>
-                                {revealConds ? `${WEATHERS[r.weather].icon} ${WEATHERS[r.weather].name}` : '❔ weather'}
+                                {revealConds ? `${WEATHERS[r.weather].icon} ${WEATHERS[r.weather].name}` : '❔ thời tiết'}
                               </span>
                             )}
-                            {r.weather && r.catalyst && ' or '}
+                            {r.weather && r.catalyst && ' hoặc '}
                             {r.catalyst && (
                               <span className={`cond ${r.catalyst === activeCatalyst ? 'cond--met' : ''}`}>
                                 {revealConds ? `${GENES[r.catalyst].icon} ${GENES[r.catalyst].name}` : '❔ gene'}
@@ -213,12 +224,12 @@ function BreedTab() {
 
       <div className="tray">
         <div className="row row--between">
-          <span className="lab-label">Crop samples</span>
-          <span className="cond">{cropList.length} types</span>
+          <span className="lab-label">Mẫu nông sản</span>
+          <span className="cond">{cropList.length} loại</span>
         </div>
         {cropList.length === 0 ? (
           <p style={{ padding: '18px 0 6px', textAlign: 'center', color: '#8fbfc0', fontWeight: 700 }}>
-            No crops yet — harvest something on the farm first 🧑‍🌾
+            Chưa có nông sản — hãy thu hoạch ở nông trại trước 🧑‍🌾
           </p>
         ) : (
           <div className="tray__row">
@@ -229,7 +240,7 @@ function BreedTab() {
                 className="tray__item"
                 onClick={() => pick(id)}
                 disabled={busy || available(id) <= 0}
-                title={`Add ${PLANTS[id].name}`}
+                title={`Thêm ${PLANTS[id].name}`}
               >
                 <PlantIcon id={id} size={38} />
                 <span className="n">{PLANTS[id].name}</span>
@@ -248,7 +259,7 @@ function BreedTab() {
 function BreedResultModal({ result, onClose }: { result: BreedResult; onClose: () => void }) {
   const plant = PLANTS[result.result];
   const rarity = RARITY_INFO[plant.rarity];
-  const title = result.isNew ? 'New Species!' : result.recipe ? 'Mutation Success!' : 'Seeds Collected';
+  const title = result.isNew ? 'Loài Mới!' : result.recipe ? 'Đột Biến Thành Công!' : 'Đã Thu Hạt Giống';
   return (
     <Modal onClose={onClose} variant="lab" labelledBy="breed-result-title">
       <div className="detail-hero">
@@ -256,12 +267,12 @@ function BreedResultModal({ result, onClose }: { result: BreedResult; onClose: (
         <PlantIcon id={plant.id} size={110} float />
         <span className="rarity" style={{ '--rc': rarity.color } as CSSProperties}>{rarity.label}</span>
         <h2 id="breed-result-title" style={{ fontSize: 28, color: '#fff' }}>{plant.name}</h2>
-        <span className="cond cond--met">+{result.seeds} seed{result.seeds > 1 ? 's' : ''} added to your bag</span>
+        <span className="cond cond--met">+{result.seeds} hạt đã vào túi đồ</span>
       </div>
       <div className="resonance">
         <div className="row row--between">
-          <span className="lab-label">Rolled genes · total {statTotal(result.stats)}</span>
-          {result.record && <span className="cond cond--met">🏅 New best specimen</span>}
+          <span className="lab-label">Gene ngẫu nhiên · tổng {statTotal(result.stats)}</span>
+          {result.record && <span className="cond cond--met">🏅 Mẫu vật tốt nhất mới</span>}
         </div>
         <div className="mt-2" style={{ display: 'grid', gap: 6 }}>
           {STAT_META.map((m) => (
@@ -273,7 +284,7 @@ function BreedResultModal({ result, onClose }: { result: BreedResult; onClose: (
           ))}
         </div>
       </div>
-      <button id="breed-result-close" className="btn btn--teal btn--block btn--lg mt-4" onClick={onClose}>Continue</button>
+      <button id="breed-result-close" className="btn btn--teal btn--block btn--lg mt-4" onClick={onClose}>Tiếp tục</button>
     </Modal>
   );
 }
@@ -288,12 +299,12 @@ function ExtractTab() {
   return (
     <>
       <p style={{ color: '#a9d6d3', fontWeight: 700, marginBottom: 16 }}>
-        Break a crop down into its genetic code. Crops with a special gene produce a <b style={{ color: '#fff' }}>gene sample</b> you can use as a breeding catalyst. Every extraction also grants Gene Points.
+        Phân tách nông sản thành mã di truyền. Nông sản mang gene đặc biệt sẽ cho ra <b style={{ color: '#fff' }}>mẫu gene</b> dùng làm chất xúc tác khi lai. Mỗi lần tách cũng được thêm Điểm Gene.
       </p>
       {list.length === 0 ? (
         <div className="empty" style={{ color: '#8fbfc0' }}>
           <span className="empty__icon">🧪</span>
-          Nothing to extract — harvest crops first.
+          Không có gì để tách — hãy thu hoạch nông sản trước.
         </div>
       ) : (
         <div className="grid-cards">
@@ -309,7 +320,7 @@ function ExtractTab() {
                   {p.gene ? `${GENES[p.gene].icon} ${GENES[p.gene].name} + ` : ''}🧬 {gp} GP
                 </div>
                 <button id={`extract-${id}`} className="btn btn--teal btn--sm btn--block" onClick={() => extract(id)}>
-                  Extract
+                  Tách gene
                 </button>
               </div>
             );
@@ -328,7 +339,7 @@ function UpgradesTab() {
   return (
     <>
       <p style={{ color: '#a9d6d3', fontWeight: 700, marginBottom: 16 }}>
-        Spend Gene Points (earned from discoveries and extraction) to upgrade your lab equipment. You have <b style={{ color: '#fff' }}>🧬 {gp}</b>.
+        Dùng Điểm Gene (nhận từ khám phá và tách gene) để nâng cấp thiết bị phòng thí nghiệm. Bạn đang có <b style={{ color: '#fff' }}>🧬 {gp}</b>.
       </p>
       {(Object.keys(LAB_UPGRADES) as LabUpgradeId[]).map((id) => {
         const u = LAB_UPGRADES[id];
@@ -340,15 +351,15 @@ function UpgradesTab() {
             <span className="upgrade__icon" aria-hidden>{u.icon}</span>
             <div className="upgrade__body">
               <div className="upgrade__name">{u.name}</div>
-              <div className="pips" aria-label={`Level ${level} of ${u.costs.length}`}>
+              <div className="pips" aria-label={`Cấp ${level} trên ${u.costs.length}`}>
                 {u.costs.map((_, i) => <span key={i} className={i < level ? 'on' : ''} />)}
               </div>
               <div className="upgrade__desc">
-                {maxed ? `MAX — ${u.description[level - 1]}` : `Next: ${u.description[level]}`}
+                {maxed ? `TỐI ĐA — ${u.description[level - 1]}` : `Cấp tiếp: ${u.description[level]}`}
               </div>
             </div>
             <button id={`upgrade-${id}`} className="btn btn--violet" disabled={maxed || gp < cost} onClick={() => buy(id)}>
-              {maxed ? 'Maxed' : `🧬 ${cost}`}
+              {maxed ? 'Tối đa' : `🧬 ${cost}`}
             </button>
           </div>
         );
@@ -365,15 +376,15 @@ export default function GeneLabView() {
         <div className="panel__title">
           <span className="panel__title-icon" aria-hidden>🔬</span>
           <div>
-            <h2 id="lab-title">Gene Lab</h2>
-            <div className="panel__sub">Splice crops, add catalysts, discover new life.</div>
+            <h2 id="lab-title">Phòng Gene</h2>
+            <div className="panel__sub">Lai ghép nông sản, thêm chất xúc tác, khám phá sự sống mới.</div>
           </div>
         </div>
         <div className="tabs" role="tablist">
           {([
-            ['breed', '🧬 Breed'],
-            ['extract', '🧪 Extract'],
-            ['upgrades', '⚙️ Upgrades'],
+            ['breed', '🧬 Lai ghép'],
+            ['extract', '🧪 Tách gene'],
+            ['upgrades', '⚙️ Nâng cấp'],
           ] as [Tab, string][]).map(([id, label]) => (
             <button key={id} id={`lab-tab-${id}`} role="tab" className="tab" aria-selected={tab === id} onClick={() => setTab(id)}>
               {label}

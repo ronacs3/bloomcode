@@ -8,7 +8,8 @@ import {
 } from '@/data/world';
 import { EMPTY_STATS, QUESTS, type GameStats, type QuestContext } from '@/data/quests';
 import { breedPlants, rollFarmMutation, statTotal, type BreedOutcome } from '@/lib/breeding';
-import { playSfx, type Sfx } from '@/lib/sfx';
+import { playSfx, setMute, startAmbience, type Sfx } from '@/lib/sfx';
+import { saveGameToIndexedDB } from '@/lib/db';
 import { useUi } from './uiStore';
 
 export type View = 'farm' | 'lab' | 'genedex' | 'shop' | 'inventory';
@@ -27,16 +28,16 @@ export interface Plot {
 
 export const LAB_UPGRADES: Record<LabUpgradeId, { name: string; icon: string; costs: number[]; description: string[] }> = {
   amp: {
-    name: 'Mutation Amplifier', icon: '📡', costs: [20, 45, 90],
-    description: ['+10% breeding mutation chance', '+20% breeding mutation chance', '+30% breeding mutation chance'],
+    name: 'Bộ Khuếch Đại Đột Biến', icon: '📡', costs: [20, 45, 90],
+    description: ['+10% tỉ lệ đột biến khi lai', '+20% tỉ lệ đột biến khi lai', '+30% tỉ lệ đột biến khi lai'],
   },
   scanner: {
-    name: 'Gene Scanner', icon: '🔍', costs: [25, 60],
-    description: ['GeneDex reveals mutation conditions', 'GeneDex reveals full recipes'],
+    name: 'Máy Quét Gene', icon: '🔍', costs: [25, 60],
+    description: ['GeneDex hiện điều kiện đột biến', 'GeneDex hiện đầy đủ công thức'],
   },
   twin: {
-    name: 'Twin Incubator', icon: '🥚', costs: [40, 90],
-    description: ['25% chance of a bonus seed when breeding', '50% chance of a bonus seed when breeding'],
+    name: 'Lồng Ấp Song Sinh', icon: '🥚', costs: [40, 90],
+    description: ['25% cơ hội nhận thêm hạt khi lai', '50% cơ hội nhận thêm hạt khi lai'],
   },
 };
 
@@ -160,7 +161,7 @@ export const useGame = create<GameState>()(
       const gainGene = (gene: GeneId, source: string) => {
         set((s) => ({ genes: add(s.genes, gene, 1) }));
         bump('genes');
-        ui().toast(GENES[gene].icon, `${GENES[gene].name} collected from ${source}!`, 'good');
+        ui().toast(GENES[gene].icon, `Nhận ${GENES[gene].name} từ ${source}!`, 'good');
       };
 
       const harvest = (plot: Plot) => {
@@ -171,7 +172,7 @@ export const useGame = create<GameState>()(
           set((st) => ({ crops: add(st.crops, mutated, 1) }));
           bump('farmMutations');
           ui().fx(plot.id, `✨ ${PLANTS[mutated].name}!`);
-          ui().toast('🧬', `Mutation! ${PLANTS[species].name} became ${PLANTS[mutated].name}`, 'rare');
+          ui().toast('🧬', `Đột biến! ${PLANTS[species].name} đã biến thành ${PLANTS[mutated].name}`, 'rare');
           get().sfx('mutation');
           discover(mutated);
         } else {
@@ -207,7 +208,13 @@ export const useGame = create<GameState>()(
           else set({ tool, selectedSeed: null, selectedSoil: null });
         },
 
-        toggleMute: () => set((s) => ({ muted: !s.muted })),
+        toggleMute: () =>
+          set((s) => {
+            const nextMuted = !s.muted;
+            setMute(nextMuted);
+            if (!nextMuted) startAmbience();
+            return { muted: nextMuted };
+          }),
         dismissIntro: () => set({ seenIntro: true }),
 
         applyTool: (plotId, fromDrag = false) => {
@@ -245,13 +252,13 @@ export const useGame = create<GameState>()(
               if (!seed || plot.plantId) return;
               if (!plot.tilled) {
                 if (!fromDrag) {
-                  ui().toast('⛏️', 'Till the soil with the Hoe first!', 'bad');
+                  ui().toast('⛏️', 'Hãy dùng cuốc xới đất trước!', 'bad');
                   get().sfx('error');
                 }
                 return;
               }
               if ((s.seeds[seed] ?? 0) <= 0) {
-                if (!fromDrag) ui().toast('🌱', `No ${PLANTS[seed].name} seeds left`, 'bad');
+                if (!fromDrag) ui().toast('🌱', `Hết hạt ${PLANTS[seed].name}`, 'bad');
                 return;
               }
               const autoWater = WEATHERS[s.weather].autoWater || s.sprinkler;
@@ -261,7 +268,7 @@ export const useGame = create<GameState>()(
               ui().fx(plotId, '🌱');
               get().sfx('plant');
               if ((get().seeds[seed] ?? 0) <= 0) {
-                ui().toast('🌱', `Out of ${PLANTS[seed].name} seeds`, 'info');
+                ui().toast('🌱', `Đã dùng hết hạt ${PLANTS[seed].name}`, 'info');
                 set({ tool: 'water', selectedSeed: null });
               }
               return;
@@ -269,7 +276,7 @@ export const useGame = create<GameState>()(
             case 'soil': {
               const kit = s.selectedSoil;
               if (!kit || plot.plantId || plot.soil === kit) {
-                if (plot.plantId && !fromDrag) ui().toast('🪴', 'Harvest the plot before changing its soil', 'bad');
+                if (plot.plantId && !fromDrag) ui().toast('🪴', 'Hãy thu hoạch trước khi đổi loại đất', 'bad');
                 return;
               }
               if ((s.soils[kit] ?? 0) <= 0) return;
@@ -289,14 +296,14 @@ export const useGame = create<GameState>()(
           const s = get();
           const cost = plotUnlockCost(s.plots.filter((p) => p.unlocked).length);
           if (s.coin < cost) {
-            ui().toast('🔒', `Need ${cost} coins to unlock this plot`, 'bad');
+            ui().toast('🔒', `Cần ${cost} xu để mở ô đất này`, 'bad');
             get().sfx('error');
             return;
           }
           set({ coin: s.coin - cost });
           updatePlot(plotId, { unlocked: true });
           ui().fx(plotId, '🎉');
-          ui().toast('🗺️', `New plot unlocked for ${cost} coins`, 'good');
+          ui().toast('🗺️', `Đã mở ô đất mới với giá ${cost} xu`, 'good');
           get().sfx('unlock');
         },
 
@@ -329,7 +336,7 @@ export const useGame = create<GameState>()(
           }
           set({ coin: s.coin - price, seeds: add(s.seeds, id, qty) });
           get().sfx('coin');
-          ui().toast(PLANTS[id].icon, `Bought ${qty} ${PLANTS[id].name} seed${qty > 1 ? 's' : ''}`, 'good');
+          ui().toast(PLANTS[id].icon, `Đã mua ${qty} hạt ${PLANTS[id].name}`, 'good');
         },
 
         sellCrop: (id, qty) => {
@@ -341,7 +348,7 @@ export const useGame = create<GameState>()(
           set({ coin: s.coin + earned, crops: add(s.crops, id, -n) });
           bump('sold', n);
           get().sfx('coin');
-          ui().toast('🪙', `+${earned.toLocaleString()} coins`, 'good');
+          ui().toast('🪙', `+${earned.toLocaleString('vi-VN')} xu`, 'good');
         },
 
         sellAllCrops: () => {
@@ -356,7 +363,7 @@ export const useGame = create<GameState>()(
           set({ coin: s.coin + earned, crops: {} });
           bump('sold', count);
           get().sfx('coin');
-          ui().toast('🪙', `Sold ${count} crops for ${earned.toLocaleString()} coins`, 'good');
+          ui().toast('🪙', `Đã bán ${count} nông sản, thu ${earned.toLocaleString('vi-VN')} xu`, 'good');
         },
 
         buySoil: (id) => {
@@ -368,7 +375,7 @@ export const useGame = create<GameState>()(
           }
           set({ coin: s.coin - price, soils: add(s.soils, id, 1) });
           get().sfx('coin');
-          ui().toast(SOILS[id].icon, `Bought ${SOILS[id].name} kit`, 'good');
+          ui().toast(SOILS[id].icon, `Đã mua gói ${SOILS[id].name}`, 'good');
         },
 
         buySprinkler: () => {
@@ -383,7 +390,7 @@ export const useGame = create<GameState>()(
             plots: s.plots.map((p) => (p.plantId && p.growth < 100 ? { ...p, watered: true } : p)),
           });
           get().sfx('unlock');
-          ui().toast('💦', 'Sprinkler installed! Crops are watered every morning.', 'good');
+          ui().toast('💦', 'Đã lắp vòi tưới! Cây sẽ được tưới mỗi sáng.', 'good');
         },
 
         breed: (a, b, catalyst) => {
@@ -420,7 +427,7 @@ export const useGame = create<GameState>()(
           const gpGain = { common: 1, uncommon: 3, rare: 6, epic: 12, legendary: 25 }[plant.rarity];
           set({ crops: add(s.crops, id, -1), gp: s.gp + gpGain, stats: { ...s.stats, extracted: s.stats.extracted + 1 } });
           if (plant.gene) gainGene(plant.gene, plant.name);
-          else ui().toast('🧪', `Extracted ${plant.name}: +${gpGain} Gene Points`, 'info');
+          else ui().toast('🧪', `Đã tách gene ${plant.name}: +${gpGain} Điểm Gene`, 'info');
           get().sfx('water');
         },
 
@@ -434,7 +441,7 @@ export const useGame = create<GameState>()(
           }
           set({ gp: s.gp - cost, lab: { ...s.lab, [id]: level + 1 } });
           get().sfx('unlock');
-          ui().toast(LAB_UPGRADES[id].icon, `${LAB_UPGRADES[id].name} upgraded to Lv ${level + 1}`, 'good');
+          ui().toast(LAB_UPGRADES[id].icon, `${LAB_UPGRADES[id].name} đã lên cấp ${level + 1}`, 'good');
         },
 
         claimQuest: (id) => {
@@ -456,7 +463,7 @@ export const useGame = create<GameState>()(
             seeds, genes, soils,
           });
           get().sfx('coin');
-          ui().toast(quest.icon, `Goal complete: ${quest.title}!`, 'good');
+          ui().toast(quest.icon, `Hoàn thành mục tiêu: ${quest.title}!`, 'good');
         },
 
         resetGame: () => {
@@ -472,3 +479,30 @@ export const useGame = create<GameState>()(
     },
   ),
 );
+
+// Auto-sync Zustand state to Dexie IndexedDB for robust offline persistence
+if (typeof window !== 'undefined') {
+  useGame.subscribe((state) => {
+    void saveGameToIndexedDB(
+      {
+        day: state.day,
+        weather: state.weather,
+        forecast: state.forecast,
+        coin: state.coin,
+        gp: state.gp,
+        discovered: state.discovered,
+        plots: state.plots,
+        seeds: state.seeds,
+        crops: state.crops,
+        genes: state.genes,
+        soils: state.soils,
+        sprinkler: state.sprinkler,
+        lab: state.lab,
+        stats: state.stats,
+        claimed: state.claimed,
+        best: state.best,
+      },
+      state.day
+    );
+  });
+}

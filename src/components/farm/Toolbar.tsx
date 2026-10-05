@@ -7,9 +7,9 @@ import { SOILS, SOIL_KIT_IDS, type SoilId } from '@/data/world';
 import PlantIcon from '@/components/ui/PlantIcon';
 
 const TOOLS: { id: Tool; label: string; icon: string }[] = [
-  { id: 'hoe', label: 'Hoe', icon: '⛏️' },
-  { id: 'water', label: 'Water', icon: '🚿' },
-  { id: 'harvest', label: 'Harvest', icon: '🧺' },
+  { id: 'hoe', label: 'Cuốc', icon: '⛏️' },
+  { id: 'water', label: 'Tưới', icon: '🚿' },
+  { id: 'harvest', label: 'Thu hoạch', icon: '🧺' },
 ];
 
 export default function Toolbar() {
@@ -41,7 +41,7 @@ export default function Toolbar() {
   }, [seedList, setTool]);
 
   return (
-    <div className="hotbar" role="toolbar" aria-label="Farming tools">
+    <div className="hotbar" role="toolbar" aria-label="Dụng cụ làm vườn">
       <div className="hotbar__group">
         {TOOLS.map((t, i) => (
           <button
@@ -60,13 +60,13 @@ export default function Toolbar() {
       </div>
 
       <div className="hotbar__sep" />
-      <span className="hotbar__label">Seeds</span>
+      <span className="hotbar__label">Hạt giống</span>
 
       <div className="hotbar__group">
         {seedList.length === 0 && (
           <div className="slot" style={{ width: 150, cursor: 'default' }}>
             <span className="slot__icon" aria-hidden>🛒</span>
-            <span className="slot__label">No seeds — visit the Shop</span>
+            <span className="slot__label">Hết hạt — ghé Cửa hàng</span>
           </div>
         )}
         {seedList.map(([id, q], i) => (
@@ -76,7 +76,7 @@ export default function Toolbar() {
             className="slot"
             aria-pressed={tool === 'seed' && selectedSeed === id}
             onClick={() => setTool('seed', id)}
-            title={`${PLANTS[id].name} seed${i < 6 ? ` (${i + 4})` : ''}`}
+            title={`Hạt ${PLANTS[id].name}${i < 6 ? ` (${i + 4})` : ''}`}
           >
             {i < 6 && <span className="slot__key">{i + 4}</span>}
             <span className="slot__icon"><PlantIcon id={id} size={30} /></span>
@@ -89,7 +89,7 @@ export default function Toolbar() {
       {soilList.length > 0 && (
         <>
           <div className="hotbar__sep" />
-          <span className="hotbar__label">Soil</span>
+          <span className="hotbar__label">Đất</span>
           <div className="hotbar__group">
             {soilList.map((id: SoilId) => (
               <button
@@ -101,7 +101,7 @@ export default function Toolbar() {
                 title={`${SOILS[id].name}: ${SOILS[id].description}`}
               >
                 <span className="slot__icon" aria-hidden>{SOILS[id].icon}</span>
-                <span className="slot__label">{SOILS[id].name.replace(' Soil', '')}</span>
+                <span className="slot__label">{SOILS[id].short}</span>
                 <span className="slot__count">{soils[id]}</span>
               </button>
             ))}

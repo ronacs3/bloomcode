@@ -27,11 +27,11 @@ export default function GameClient() {
 
   if (!hydrated) {
     return (
-      <div className="splash" role="status" aria-label="Loading BLOOMCODE">
+      <div className="splash" role="status" aria-label="Đang tải BLOOMCODE">
         <div className="splash__inner">
           <span className="splash__sprout" aria-hidden>🌱</span>
           <span className="logo__text" style={{ fontSize: 34 }}>BLOOMCODE</span>
-          <span className="muted" style={{ fontWeight: 800 }}>Watering the seeds…</span>
+          <span className="muted" style={{ fontWeight: 800 }}>Đang tưới hạt giống…</span>
         </div>
       </div>
     );

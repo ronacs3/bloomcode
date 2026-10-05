@@ -16,13 +16,13 @@ export interface Weather {
 }
 
 export const WEATHERS: Record<WeatherId, Weather> = {
-  sunny: { id: 'sunny', name: 'Sunny', icon: '☀️', weight: 32, autoWater: false, growthMul: 1, description: 'Clear skies — a perfect farming day.' },
-  rain: { id: 'rain', name: 'Rain', icon: '🌧️', weight: 20, autoWater: true, growthMul: 1, description: 'All crops are watered automatically.' },
-  thunderstorm: { id: 'thunderstorm', name: 'Thunderstorm', icon: '⛈️', weight: 11, autoWater: true, growthMul: 1, gene: 'thunder', description: 'Auto-waters. Electric mutations crackle in the air!' },
-  snow: { id: 'snow', name: 'Snow', icon: '❄️', weight: 10, autoWater: false, growthMul: 0.5, gene: 'frost', description: 'Growth slows down. Frost mutations appear.' },
-  heatwave: { id: 'heatwave', name: 'Heatwave', icon: '🔥', weight: 10, autoWater: false, growthMul: 1.5, gene: 'fire', description: 'Watered crops grow fast. Fiery mutations bloom.' },
-  fullmoon: { id: 'fullmoon', name: 'Full Moon', icon: '🌕', weight: 10, autoWater: false, growthMul: 1, gene: 'moon', description: 'Moonlight awakens lunar genes.' },
-  meteor: { id: 'meteor', name: 'Meteor Shower', icon: '☄️', weight: 7, autoWater: false, growthMul: 1, gene: 'star', description: 'Stardust falls! Cosmic mutations are possible.' },
+  sunny: { id: 'sunny', name: 'Nắng đẹp', icon: '☀️', weight: 32, autoWater: false, growthMul: 1, description: 'Trời quang mây tạnh — ngày lý tưởng để làm vườn.' },
+  rain: { id: 'rain', name: 'Mưa', icon: '🌧️', weight: 20, autoWater: true, growthMul: 1, description: 'Mọi cây trồng đều được tưới tự động.' },
+  thunderstorm: { id: 'thunderstorm', name: 'Giông bão', icon: '⛈️', weight: 11, autoWater: true, growthMul: 1, gene: 'thunder', description: 'Tự tưới cây. Đột biến điện lách tách trong không khí!' },
+  snow: { id: 'snow', name: 'Tuyết rơi', icon: '❄️', weight: 10, autoWater: false, growthMul: 0.5, gene: 'frost', description: 'Cây lớn chậm lại. Đột biến băng giá xuất hiện.' },
+  heatwave: { id: 'heatwave', name: 'Nắng nóng', icon: '🔥', weight: 10, autoWater: false, growthMul: 1.5, gene: 'fire', description: 'Cây được tưới sẽ lớn rất nhanh. Đột biến lửa nở rộ.' },
+  fullmoon: { id: 'fullmoon', name: 'Trăng tròn', icon: '🌕', weight: 10, autoWater: false, growthMul: 1, gene: 'moon', description: 'Ánh trăng đánh thức các gene mặt trăng.' },
+  meteor: { id: 'meteor', name: 'Mưa sao băng', icon: '☄️', weight: 7, autoWater: false, growthMul: 1, gene: 'star', description: 'Bụi sao rơi xuống! Có thể xảy ra đột biến vũ trụ.' },
 };
 
 export const WEATHER_IDS = Object.keys(WEATHERS) as WeatherId[];
@@ -44,6 +44,7 @@ export type SoilId = 'normal' | 'fertile' | 'volcanic' | 'frost' | 'crystal';
 export interface Soil {
   id: SoilId;
   name: string;
+  short: string;
   icon: string;
   price: number;
   growthMul: number;
@@ -52,11 +53,11 @@ export interface Soil {
 }
 
 export const SOILS: Record<SoilId, Soil> = {
-  normal: { id: 'normal', name: 'Farm Soil', icon: '🟫', price: 0, growthMul: 1, description: 'Plain, honest dirt.' },
-  fertile: { id: 'fertile', name: 'Fertile Soil', icon: '🌱', price: 60, growthMul: 1.5, description: 'Crops grow 50% faster.' },
-  volcanic: { id: 'volcanic', name: 'Volcanic Soil', icon: '🌋', price: 140, growthMul: 1, gene: 'fire', description: 'Hot ash. Triggers fire mutations.' },
-  frost: { id: 'frost', name: 'Frost Soil', icon: '🧊', price: 140, growthMul: 0.9, gene: 'frost', description: 'Permafrost. Triggers frost mutations.' },
-  crystal: { id: 'crystal', name: 'Crystal Soil', icon: '💎', price: 320, growthMul: 1, gene: 'crystal', description: 'Glittering geode dust. Triggers crystal mutations.' },
+  normal: { id: 'normal', name: 'Đất thường', short: 'Thường', icon: '🟫', price: 0, growthMul: 1, description: 'Đất ruộng bình thường, chân chất.' },
+  fertile: { id: 'fertile', name: 'Đất màu mỡ', short: 'Màu mỡ', icon: '🌱', price: 60, growthMul: 1.5, description: 'Cây lớn nhanh hơn 50%.' },
+  volcanic: { id: 'volcanic', name: 'Đất núi lửa', short: 'Núi lửa', icon: '🌋', price: 140, growthMul: 1, gene: 'fire', description: 'Tro nóng. Kích hoạt đột biến lửa.' },
+  frost: { id: 'frost', name: 'Đất băng', short: 'Băng', icon: '🧊', price: 140, growthMul: 0.9, gene: 'frost', description: 'Đất đóng băng vĩnh cửu. Kích hoạt đột biến băng giá.' },
+  crystal: { id: 'crystal', name: 'Đất pha lê', short: 'Pha lê', icon: '💎', price: 320, growthMul: 1, gene: 'crystal', description: 'Bụi đá quý lấp lánh. Kích hoạt đột biến pha lê.' },
 };
 
 export const SOIL_KIT_IDS: SoilId[] = ['fertile', 'volcanic', 'frost', 'crystal'];

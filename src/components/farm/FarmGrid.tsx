@@ -8,11 +8,11 @@ import { SOILS, GRID_COLS, plotUnlockCost } from '@/data/world';
 import PlantIcon, { stageFor } from '@/components/ui/PlantIcon';
 
 function describe(p: Plot, cost: number) {
-  if (!p.unlocked) return `Locked plot — unlock for ${cost} coins`;
-  if (!p.plantId) return p.tilled ? `Tilled ${SOILS[p.soil].name}, ready for seeds` : 'Untilled grass';
+  if (!p.unlocked) return `Ô đất bị khoá — mở với giá ${cost} xu`;
+  if (!p.plantId) return p.tilled ? `${SOILS[p.soil].name} đã xới, sẵn sàng gieo hạt` : 'Bãi cỏ chưa xới';
   const name = PLANTS[p.plantId].name;
-  if (isReady(p)) return `${name} ready to harvest`;
-  return `${name}, ${Math.round(p.growth)}% grown, ${p.watered ? 'watered' : 'needs water'}`;
+  if (isReady(p)) return `${name} đã chín, có thể thu hoạch`;
+  return `${name}, lớn ${Math.round(p.growth)}%, ${p.watered ? 'đã tưới' : 'cần tưới nước'}`;
 }
 
 export default function FarmGrid() {
@@ -99,7 +99,7 @@ export default function FarmGrid() {
                   )}
                   {ready && (
                     <>
-                      <span className="plot__ready-tag">Ready!</span>
+                      <span className="plot__ready-tag">Chín rồi!</span>
                       <span className="plot__sparkle" aria-hidden />
                     </>
                   )}
