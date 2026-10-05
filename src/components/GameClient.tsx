@@ -6,7 +6,9 @@ import Header from '@/components/ui/Header';
 import WeatherScene from '@/components/ui/WeatherScene';
 import { DayCard, DiscoveryModal, IntroModal, Toasts } from '@/components/ui/Overlays';
 import FarmView from '@/components/farm/FarmView';
+import RanchView from '@/components/ranch/RanchView';
 import GeneLabView from '@/components/lab/GeneLabView';
+import BattleView from '@/components/battle/BattleView';
 import GeneDexView from '@/components/genedex/GeneDexView';
 import ShopView from '@/components/shop/ShopView';
 import InventoryView from '@/components/inventory/InventoryView';
@@ -44,7 +46,9 @@ export default function GameClient() {
         <Header />
         <main className="main" key={view}>
           {view === 'farm' && <FarmView />}
+          {view === 'ranch' && <RanchView />}
           {view === 'lab' && <GeneLabView />}
+          {view === 'battle' && <BattleView />}
           {view === 'genedex' && <GeneDexView />}
           {view === 'shop' && <ShopView />}
           {view === 'inventory' && <InventoryView />}

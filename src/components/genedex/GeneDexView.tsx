@@ -123,9 +123,13 @@ function LockedHint({ id }: { id: string }) {
   return <>&ldquo;{p.hint}&rdquo; {conds.length > 0 && <b>🔍 {Array.from(new Set(conds)).join(' ')}</b>}</>;
 }
 
+import { ALL_CREATURES, ELEMENT_INFO } from '@/data/creatures';
+
 export default function GeneDexView() {
   const discovered = useGame((s) => s.discovered);
+  const discoveredCreatures = useGame((s) => s.discoveredCreatures);
   const gp = useGame((s) => s.gp);
+  const [dexMode, setDexMode] = useState<'plants' | 'creatures'>('plants');
   const [filter, setFilter] = useState<'all' | Rarity>('all');
   const [open, setOpen] = useState<string | null>(null);
 
@@ -141,69 +145,136 @@ export default function GeneDexView() {
           <span className="panel__title-icon" aria-hidden>📖</span>
           <div>
             <h2 id="dex-title">GeneDex</h2>
-            <div className="panel__sub">Bộ sưu tập mọi loài cây bạn đã tạo ra.</div>
+            <div className="panel__sub">Bộ sưu tập tất cả các loài cây và sinh vật bạn đã khám phá.</div>
           </div>
         </div>
         <span className="stat stat--gp"><span className="stat__icon">🧬</span>{gp} GP</span>
       </div>
 
-      <div className="dex-head">
-        <div className="dex-progress">
-          <span className="dex-count">{found} / {TOTAL_SPECIES}</span>
-          <div className="bar" aria-label={`Hoàn thành ${pct}%`}>
-            <div className="bar__fill" style={{ width: `${pct}%` }} />
+      {/* Mode Switcher */}
+      <div className="tabs my-3 border-b border-amber-900/10 pb-2">
+        <button
+          className={`tab ${dexMode === 'plants' ? 'tab--active' : ''}`}
+          onClick={() => setDexMode('plants')}
+        >
+          🌱 PlantDex ({discovered.length}/{TOTAL_SPECIES})
+        </button>
+        <button
+          className={`tab ${dexMode === 'creatures' ? 'tab--active' : ''}`}
+          onClick={() => setDexMode('creatures')}
+        >
+          🐲 CreatureDex ({discoveredCreatures.length}/{ALL_CREATURES.length})
+        </button>
+      </div>
+
+      {dexMode === 'plants' ? (
+        <>
+          <div className="dex-head">
+            <div className="dex-progress">
+              <span className="dex-count">{found} / {TOTAL_SPECIES}</span>
+              <div className="bar" aria-label={`Hoàn thành ${pct}%`}>
+                <div className="bar__fill" style={{ width: `${pct}%` }} />
+              </div>
+              <span className="chip">{pct}%</span>
+            </div>
+            <div className="tabs" role="tablist" aria-label="Lọc theo độ hiếm">
+              <button role="tab" id="dex-filter-all" className="tab" aria-selected={filter === 'all'} onClick={() => setFilter('all')}>Tất cả</button>
+              {RARITY_ORDER.map((r) => {
+                const total = ALL_PLANTS.filter((p) => p.rarity === r).length;
+                const got = ALL_PLANTS.filter((p) => p.rarity === r && discovered.includes(p.id)).length;
+                return (
+                  <button key={r} role="tab" id={`dex-filter-${r}`} className="tab" aria-selected={filter === r} onClick={() => setFilter(r)}>
+                    <span style={{ width: 9, height: 9, borderRadius: 9, background: RARITY_INFO[r].color, display: 'inline-block' }} />
+                    {RARITY_INFO[r].label}
+                    <span className="tab__count">{got}/{total}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
-          <span className="chip">{pct}%</span>
-        </div>
-        <div className="tabs" role="tablist" aria-label="Lọc theo độ hiếm">
-          <button role="tab" id="dex-filter-all" className="tab" aria-selected={filter === 'all'} onClick={() => setFilter('all')}>Tất cả</button>
-          {RARITY_ORDER.map((r) => {
-            const total = ALL_PLANTS.filter((p) => p.rarity === r).length;
-            const got = ALL_PLANTS.filter((p) => p.rarity === r && discovered.includes(p.id)).length;
+
+          <div className="dex-grid">
+            {list.map((p) => {
+              const isFound = discovered.includes(p.id);
+              const rc = RARITY_INFO[p.rarity].color;
+              if (!isFound) {
+                return (
+                  <div key={p.id} className="dex-card dex-card--locked" style={{ '--rc': 'transparent' } as CSSProperties}>
+                    <span className="dex-card__no">#{String(p.dex).padStart(3, '0')}</span>
+                    <PlantIcon id={p.id} size={58} silhouette />
+                    <div className="card__name" style={{ color: 'var(--ink-faint)' }}>???</div>
+                    <div className="dex-card__hint"><LockedHint id={p.id} /></div>
+                  </div>
+                );
+              }
+              return (
+                <motion.button
+                  key={p.id}
+                  id={`dex-${p.id}`}
+                  className={`dex-card dex-card--found ${recent.includes(p.id) && found > 5 ? 'dex-card--new' : ''}`}
+                  style={{ '--rc': rc } as CSSProperties}
+                  onClick={() => setOpen(p.id)}
+                  whileHover={{ scale: 1.04, y: -2 }}
+                  whileTap={{ scale: 0.96 }}
+                >
+                  <span className="dex-card__no">#{String(p.dex).padStart(3, '0')}</span>
+                  <span className="dex-card__rarity rarity" style={{ '--rc': rc } as CSSProperties}>{RARITY_INFO[p.rarity].label}</span>
+                  <PlantIcon id={p.id} size={62} />
+                  <div className="card__name">{p.name}</div>
+                  <div className="card__meta">🪙 {p.cropPrice} · ⏱️ {p.days} ngày</div>
+                </motion.button>
+              );
+            })}
+          </div>
+        </>
+      ) : (
+        /* CreatureDex View */
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {ALL_CREATURES.map((c) => {
+            const isDiscovered = discoveredCreatures.includes(c.id);
+            const ele = ELEMENT_INFO[c.element];
+            const rc = RARITY_INFO[c.rarity].color;
+
+            if (!isDiscovered) {
+              return (
+                <div key={c.id} className="card p-4 rounded-2xl border-2 border-dashed border-amber-900/20 bg-amber-950/5 text-center">
+                  <span className="text-xs font-bold text-amber-900/40">#{String(c.dex).padStart(3, '0')}</span>
+                  <div className="text-5xl opacity-20 filter grayscale my-2" aria-hidden>{c.icon}</div>
+                  <div className="font-extrabold text-amber-950/40">???</div>
+                  <div className="text-xs font-bold text-amber-900/50 mt-1">&ldquo;Chưa được phát hiện&rdquo;</div>
+                </div>
+              );
+            }
+
             return (
-              <button key={r} role="tab" id={`dex-filter-${r}`} className="tab" aria-selected={filter === r} onClick={() => setFilter(r)}>
-                <span style={{ width: 9, height: 9, borderRadius: 9, background: RARITY_INFO[r].color, display: 'inline-block' }} />
-                {RARITY_INFO[r].label}
-                <span className="tab__count">{got}/{total}</span>
-              </button>
+              <motion.div
+                key={c.id}
+                className="card p-4 rounded-2xl border-2 border-amber-900/20 bg-white/90 shadow-sm flex flex-col justify-between"
+                whileHover={{ scale: 1.03 }}
+              >
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-amber-900/60">#{String(c.dex).padStart(3, '0')}</span>
+                    <span className="px-2 py-0.5 rounded-full text-xs font-bold text-white" style={{ background: ele.color }}>
+                      {ele.icon} {ele.name}
+                    </span>
+                  </div>
+                  <div className="text-center my-2">
+                    <span className="text-5xl" aria-hidden>{c.icon}</span>
+                    <h3 className="text-base font-extrabold text-amber-950 mt-1">{c.name} ({c.title})</h3>
+                  </div>
+                  <p className="text-xs text-amber-900/70 font-semibold mb-3">{c.description}</p>
+                </div>
+
+                <div className="pt-2 border-t border-amber-900/10 text-[11px] font-extrabold text-amber-950 flex items-center justify-between">
+                  <span>HP: {c.baseStats.hp} · ATK: {c.baseStats.atk}</span>
+                  <span style={{ color: rc }}>{RARITY_INFO[c.rarity].label}</span>
+                </div>
+              </motion.div>
             );
           })}
         </div>
-      </div>
-
-      <div className="dex-grid">
-        {list.map((p) => {
-          const isFound = discovered.includes(p.id);
-          const rc = RARITY_INFO[p.rarity].color;
-          if (!isFound) {
-            return (
-              <div key={p.id} className="dex-card dex-card--locked" style={{ '--rc': 'transparent' } as CSSProperties}>
-                <span className="dex-card__no">#{String(p.dex).padStart(3, '0')}</span>
-                <PlantIcon id={p.id} size={58} silhouette />
-                <div className="card__name" style={{ color: 'var(--ink-faint)' }}>???</div>
-                <div className="dex-card__hint"><LockedHint id={p.id} /></div>
-              </div>
-            );
-          }
-          return (
-            <motion.button
-              key={p.id}
-              id={`dex-${p.id}`}
-              className={`dex-card dex-card--found ${recent.includes(p.id) && found > 5 ? 'dex-card--new' : ''}`}
-              style={{ '--rc': rc } as CSSProperties}
-              onClick={() => setOpen(p.id)}
-              whileHover={{ scale: 1.04, y: -2 }}
-              whileTap={{ scale: 0.96 }}
-            >
-              <span className="dex-card__no">#{String(p.dex).padStart(3, '0')}</span>
-              <span className="dex-card__rarity rarity" style={{ '--rc': rc } as CSSProperties}>{RARITY_INFO[p.rarity].label}</span>
-              <PlantIcon id={p.id} size={62} />
-              <div className="card__name">{p.name}</div>
-              <div className="card__meta">🪙 {p.cropPrice} · ⏱️ {p.days} ngày</div>
-            </motion.button>
-          );
-        })}
-      </div>
+      )}
 
       {open && <Detail id={open} onClose={() => setOpen(null)} />}
     </section>

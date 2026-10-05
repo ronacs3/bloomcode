@@ -6,12 +6,14 @@ import confetti from 'canvas-confetti';
 import { useGame, LAB_UPGRADES, type BreedResult, type LabUpgradeId } from '@/stores/gameStore';
 import { PLANTS, type PlantStats } from '@/data/plants';
 import { GENES, GENE_IDS, RARITY_INFO, type GeneId } from '@/data/genes';
+import { CREATURES } from '@/data/creatures';
+import { getBreedingRecipe } from '@/data/creatureRecipes';
 import { WEATHERS } from '@/data/world';
 import { recipesForPair, conditionMet, clampChance, isConditional, statTotal } from '@/lib/breeding';
 import PlantIcon from '@/components/ui/PlantIcon';
 import { Modal } from '@/components/ui/Overlays';
 
-type Tab = 'breed' | 'extract' | 'upgrades';
+type Tab = 'breed' | 'creature_breed' | 'extract' | 'upgrades';
 
 const STAT_META: { key: keyof PlantStats; icon: string; label: string }[] = [
   { key: 'growth', icon: '🌱', label: 'Sinh trưởng' },
@@ -368,6 +370,194 @@ function UpgradesTab() {
   );
 }
 
+function CreatureBreedTab() {
+  const creatures = useGame((s) => s.creatures);
+  const gp = useGame((s) => s.gp);
+  const breedCreatures = useGame((s) => s.breedCreatures);
+  const sfx = useGame((s) => s.sfx);
+
+  const [parentAId, setParentAId] = useState<string | null>(null);
+  const [parentBId, setParentBId] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [resultMsg, setResultMsg] = useState<string | null>(null);
+
+  const parentA = creatures.find((c) => c.id === parentAId) ?? null;
+  const parentB = creatures.find((c) => c.id === parentBId) ?? null;
+
+  const recipe = parentA && parentB ? getBreedingRecipe(parentA.speciesId, parentB.speciesId) : null;
+  const childSpecies = recipe ? CREATURES[recipe.childSpecies] : null;
+
+  const handleBreed = () => {
+    if (!parentAId || !parentBId || busy || gp < 10) return;
+    setBusy(true);
+    sfx('breed');
+    setTimeout(() => {
+      const egg = breedCreatures(parentAId, parentBId);
+      setBusy(false);
+      setParentAId(null);
+      setParentBId(null);
+      if (egg) {
+        setResultMsg(`🎉 Đã lai tạo thành công trứng ${CREATURES[egg.speciesId]?.name}! Trứng đã được đưa vào Incubator tại Trại thú.`);
+        void confetti({ particleCount: 70, spread: 70, origin: { y: 0.5 } });
+      }
+    }, 2000);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-emerald-950/40 border border-emerald-500/30 rounded-2xl p-4 text-emerald-200 text-sm">
+        🐾 <b>Lai Ghép Sinh Vật:</b> Chọn 2 thú nuôi trong trang trại để phối giống gene. Chi phí <b>🧬 10 GP</b>. Kết quả sẽ tạo ra một Quả Trứng mang gene di truyền và có tỉ lệ Đột biến cao!
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center bg-emerald-950/20 border border-emerald-900/40 rounded-3xl p-6">
+        <div className="bg-emerald-950/60 border border-emerald-700/40 rounded-2xl p-4 text-center">
+          <h4 className="text-xs uppercase tracking-wider text-emerald-400 font-bold mb-3">Thú Bố / Mẹ A</h4>
+          {parentA ? (
+            <div>
+              <div className="text-4xl mb-2">{CREATURES[parentA.speciesId]?.icon}</div>
+              <div className="font-bold text-white text-base">{parentA.name}</div>
+              <div className="text-xs text-emerald-300 mb-3">
+                {CREATURES[parentA.speciesId]?.name} · Lv.{parentA.level} · G{parentA.generation}
+              </div>
+              <button
+                className="text-xs bg-rose-900/50 hover:bg-rose-800 border border-rose-500/40 text-rose-200 px-3 py-1 rounded-lg"
+                onClick={() => setParentAId(null)}
+              >
+                Đổi chọn
+              </button>
+            </div>
+          ) : (
+            <div className="py-6 text-emerald-500 text-xs font-semibold">Chưa chọn</div>
+          )}
+        </div>
+
+        <div className="flex flex-col items-center justify-center text-center space-y-3">
+          <div className="w-14 h-14 rounded-full bg-emerald-900/60 border-2 border-emerald-400 flex items-center justify-center text-2xl shadow-lg shadow-emerald-900/50 animate-pulse">
+            🧬
+          </div>
+          {recipe && childSpecies ? (
+            <div className="text-center">
+              <span className="text-xs text-emerald-400 font-bold block">Tỉ lệ lai dự kiến:</span>
+              <span className="text-sm font-bold text-amber-300">
+                {childSpecies.icon} {childSpecies.name} ({Math.round(recipe.chance * 100)}%)
+              </span>
+            </div>
+          ) : (
+            <span className="text-xs text-emerald-400/70">Chọn 2 thú để tính toán gene</span>
+          )}
+
+          <button
+            className="btn btn--teal btn--lg w-full max-w-xs"
+            disabled={!parentAId || !parentBId || busy || gp < 10}
+            onClick={handleBreed}
+          >
+            {busy ? 'Đang tổng hợp Gene…' : `BẮT ĐẦU LAI (🧬 10 GP)`}
+          </button>
+        </div>
+
+        <div className="bg-emerald-950/60 border border-emerald-700/40 rounded-2xl p-4 text-center">
+          <h4 className="text-xs uppercase tracking-wider text-emerald-400 font-bold mb-3">Thú Bố / Mẹ B</h4>
+          {parentB ? (
+            <div>
+              <div className="text-4xl mb-2">{CREATURES[parentB.speciesId]?.icon}</div>
+              <div className="font-bold text-white text-base">{parentB.name}</div>
+              <div className="text-xs text-emerald-300 mb-3">
+                {CREATURES[parentB.speciesId]?.name} · Lv.{parentB.level} · G{parentB.generation}
+              </div>
+              <button
+                className="text-xs bg-rose-900/50 hover:bg-rose-800 border border-rose-500/40 text-rose-200 px-3 py-1 rounded-lg"
+                onClick={() => setParentBId(null)}
+              >
+                Đổi chọn
+              </button>
+            </div>
+          ) : (
+            <div className="py-6 text-emerald-500 text-xs font-semibold">Chưa chọn</div>
+          )}
+        </div>
+      </div>
+
+      <div>
+        <h3 className="text-sm font-bold text-emerald-300 mb-3">Danh sách thú nuôi hiện có ({creatures.length})</h3>
+        {creatures.length < 2 ? (
+          <p className="text-xs text-emerald-400/70 italic">Bạn cần ít nhất 2 thú nuôi trong trang trại để thực hiện lai ghép.</p>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+            {creatures.map((c) => {
+              const spec = CREATURES[c.speciesId];
+              const isA = parentAId === c.id;
+              const isB = parentBId === c.id;
+              return (
+                <div
+                  key={c.id}
+                  className={`bg-emerald-950/40 border rounded-xl p-3 flex flex-col justify-between transition-all ${
+                    isA || isB ? 'border-teal-400 ring-2 ring-teal-400/50 bg-teal-950/50' : 'border-emerald-800/40 hover:border-emerald-500/60'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-3xl">{spec?.icon}</span>
+                    <div>
+                      <div className="font-bold text-white text-xs">{c.name}</div>
+                      <div className="text-[10px] text-emerald-400">{spec?.name} · Lv.{c.level}</div>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 mt-3">
+                    <button
+                      className={`flex-1 text-[11px] py-1 rounded-lg font-bold transition-all ${
+                        isA
+                          ? 'bg-teal-500 text-black'
+                          : 'bg-emerald-900/60 hover:bg-emerald-800 border border-emerald-700/50 text-emerald-200'
+                      }`}
+                      onClick={() => {
+                        if (isA) setParentAId(null);
+                        else {
+                          if (parentBId === c.id) setParentBId(null);
+                          setParentAId(c.id);
+                        }
+                      }}
+                    >
+                      {isA ? '✓ Bố/Mẹ A' : 'Chọn A'}
+                    </button>
+                    <button
+                      className={`flex-1 text-[11px] py-1 rounded-lg font-bold transition-all ${
+                        isB
+                          ? 'bg-amber-500 text-black'
+                          : 'bg-emerald-900/60 hover:bg-emerald-800 border border-emerald-700/50 text-emerald-200'
+                      }`}
+                      onClick={() => {
+                        if (isB) setParentBId(null);
+                        else {
+                          if (parentAId === c.id) setParentAId(null);
+                          setParentBId(c.id);
+                        }
+                      }}
+                    >
+                      {isB ? '✓ Bố/Mẹ B' : 'Chọn B'}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {resultMsg && (
+        <Modal onClose={() => setResultMsg(null)} variant="lab">
+          <div className="text-center p-4 space-y-4">
+            <div className="text-5xl">🥚</div>
+            <h3 className="text-xl font-bold text-white">Lai Ghép Thành Công!</h3>
+            <p className="text-sm text-emerald-200">{resultMsg}</p>
+            <button className="btn btn--teal btn--block mt-4" onClick={() => setResultMsg(null)}>
+              Đã hiểu
+            </button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
 export default function GeneLabView() {
   const [tab, setTab] = useState<Tab>('breed');
   return (
@@ -377,12 +567,13 @@ export default function GeneLabView() {
           <span className="panel__title-icon" aria-hidden>🔬</span>
           <div>
             <h2 id="lab-title">Phòng Gene</h2>
-            <div className="panel__sub">Lai ghép nông sản, thêm chất xúc tác, khám phá sự sống mới.</div>
+            <div className="panel__sub">Lai ghép nông sản &amp; thú nuôi, thêm chất xúc tác, khám phá sinh vật mới.</div>
           </div>
         </div>
         <div className="tabs" role="tablist">
           {([
-            ['breed', '🧬 Lai ghép'],
+            ['breed', '🌱 Lai Cây'],
+            ['creature_breed', '🐾 Lai Thú'],
             ['extract', '🧪 Tách gene'],
             ['upgrades', '⚙️ Nâng cấp'],
           ] as [Tab, string][]).map(([id, label]) => (
@@ -393,6 +584,7 @@ export default function GeneLabView() {
         </div>
       </div>
       {tab === 'breed' && <BreedTab />}
+      {tab === 'creature_breed' && <CreatureBreedTab />}
       {tab === 'extract' && <ExtractTab />}
       {tab === 'upgrades' && <UpgradesTab />}
     </section>

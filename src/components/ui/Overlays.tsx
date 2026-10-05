@@ -7,6 +7,7 @@ import { X, Sparkles, Sprout } from 'lucide-react';
 import { useUi } from '@/stores/uiStore';
 import { useGame } from '@/stores/gameStore';
 import { PLANTS, TOTAL_SPECIES } from '@/data/plants';
+import { CREATURES } from '@/data/creatures';
 import { RARITY_INFO } from '@/data/genes';
 import { WEATHERS } from '@/data/world';
 import PlantIcon from './PlantIcon';
@@ -104,7 +105,15 @@ export function DiscoveryModal() {
 
   if (!current) return null;
   const plant = PLANTS[current];
-  const rarity = RARITY_INFO[plant.rarity];
+  const creature = CREATURES[current];
+
+  if (!plant && !creature) return null;
+
+  const name = plant?.name || creature?.name || 'Vật Thể Bí Ẩn';
+  const rarityKey = plant?.rarity || creature?.rarity || 'common';
+  const rarity = RARITY_INFO[rarityKey];
+  const description = plant?.description || creature?.description || '';
+  const dexNo = plant?.dex ? `GeneDex #${String(plant.dex).padStart(3, '0')} · ${discovered}/${TOTAL_SPECIES}` : `Sinh Vật mới`;
 
   return (
     <AnimatePresence>
@@ -126,13 +135,19 @@ export function DiscoveryModal() {
           transition={{ type: 'spring', stiffness: 260, damping: 20 }}
         >
           <span className="discovery__kicker flex items-center justify-center gap-1">
-            <Sparkles className="w-4 h-4 text-amber-400" /> Khám Phá Loài Mới <Sparkles className="w-4 h-4 text-amber-400" />
+            <Sparkles className="w-4 h-4 text-amber-400" /> Khám Phá Mới <Sparkles className="w-4 h-4 text-amber-400" />
           </span>
-          <PlantIcon id={current} size={130} float />
+          {plant ? (
+            <PlantIcon id={current} size={130} float />
+          ) : (
+            <div className="text-8xl my-4 animate-bounce" aria-hidden>
+              {creature?.icon}
+            </div>
+          )}
           <span className="rarity" style={{ '--rc': rarity.color } as CSSProperties}>{rarity.label}</span>
-          <h2 id="discovery-name" className="discovery__name">{plant.name}</h2>
-          <span className="discovery__no">GeneDex #{String(plant.dex).padStart(3, '0')} · {discovered}/{TOTAL_SPECIES}</span>
-          <p className="muted" style={{ fontWeight: 700 }}>{plant.description}</p>
+          <h2 id="discovery-name" className="discovery__name">{name}</h2>
+          <span className="discovery__no">{dexNo}</span>
+          <p className="muted" style={{ fontWeight: 700 }}>{description}</p>
           <span className="discovery__reward">+{rarity.gp} 🧬 Điểm Gene</span>
           <motion.button
             id="discovery-continue"

@@ -12,7 +12,12 @@ import { playSfx, setMute, startAmbience, type Sfx } from '@/lib/sfx';
 import { saveGameToIndexedDB } from '@/lib/db';
 import { useUi } from './uiStore';
 
-export type View = 'farm' | 'lab' | 'genedex' | 'shop' | 'inventory';
+import {
+  ALL_CREATURES, type CreatureInstance, type EggInstance, type GeneGrade, type CreatureGeneGrades,
+} from '@/data/creatures';
+import { CREATURE_BREED_COMBOS, CREATURE_FOODS, rollInheritedGrade } from '@/data/creatureRecipes';
+
+export type View = 'farm' | 'ranch' | 'lab' | 'genedex' | 'battle' | 'shop' | 'inventory';
 export type Tool = 'hoe' | 'water' | 'harvest' | 'seed' | 'soil';
 export type LabUpgradeId = 'amp' | 'scanner' | 'twin';
 
@@ -43,6 +48,59 @@ export const LAB_UPGRADES: Record<LabUpgradeId, { name: string; icon: string; co
 
 type Counter<K extends string> = Partial<Record<K, number>>;
 
+export function createCreatureInstance(
+  speciesId: string,
+  customName?: string,
+  level = 1,
+  generation = 1,
+  parentA: string | null = null,
+  parentB: string | null = null,
+  inheritedGrades?: Partial<Record<'hp' | 'atk' | 'def' | 'mana' | 'mag' | 'spd', GeneGrade>>
+): CreatureInstance {
+  const species = ALL_CREATURES.find((s) => s.id === speciesId) || ALL_CREATURES[0];
+  const grades = {
+    hp: inheritedGrades?.hp || 'B',
+    atk: inheritedGrades?.atk || 'B',
+    def: inheritedGrades?.def || 'B',
+    mana: inheritedGrades?.mana || 'B',
+    mag: inheritedGrades?.mag || 'B',
+    spd: inheritedGrades?.spd || 'B',
+  };
+  const baseStats = species.baseStats;
+  const mul = 1 + (level - 1) * 0.15;
+  const maxHp = Math.round(baseStats.hp * mul);
+  const maxMana = Math.round(baseStats.mana * mul);
+
+  return {
+    id: `c_${Math.random().toString(36).slice(2, 9)}_${Date.now()}`,
+    speciesId: species.id,
+    name: customName || species.name,
+    level,
+    xp: 0,
+    maxXp: 100 * level,
+    rarity: species.rarity,
+    element: species.element,
+    generation,
+    parentA,
+    parentB,
+    geneGrades: grades,
+    stats: {
+      hp: maxHp,
+      maxHp,
+      atk: Math.round(baseStats.atk * mul),
+      def: Math.round(baseStats.def * mul),
+      mana: maxMana,
+      maxMana,
+      mag: Math.round(baseStats.mag * mul),
+      spd: Math.round(baseStats.spd * mul),
+    },
+    skills: [...species.defaultSkills],
+    trait: species.defaultTrait,
+    bond: 60,
+    hunger: 90,
+  };
+}
+
 interface GameData {
   day: number;
   weather: WeatherId;
@@ -66,6 +124,13 @@ interface GameData {
   tool: Tool;
   selectedSeed: string | null;
   selectedSoil: SoilId | null;
+  // Creature system expansion state
+  creatures: CreatureInstance[];
+  eggs: EggInstance[];
+  ranchLevel: number;
+  activeTeam: string[]; // Up to 3 creature IDs
+  discoveredCreatures: string[];
+  creatureFoods: Counter<string>;
 }
 
 export interface BreedResult extends BreedOutcome {
@@ -92,6 +157,15 @@ interface GameActions {
   claimQuest: (id: string) => void;
   resetGame: () => void;
   sfx: (name: Sfx) => void;
+  // Creature system actions
+  craftCreatureFood: (foodId: string) => void;
+  feedCreature: (creatureId: string, foodId: string) => void;
+  hatchEgg: (eggId: string) => CreatureInstance | null;
+  breedCreatures: (parentAId: string, parentBId: string) => EggInstance | null;
+  setTeamSlot: (slotIndex: number, creatureId: string | null) => void;
+  upgradeRanch: () => void;
+  gainCreatureXp: (creatureId: string, amount: number) => void;
+  addEgg: (speciesId: string) => void;
 }
 
 export type GameState = GameData & GameActions;
@@ -103,6 +177,9 @@ const add = <K extends string>(map: Counter<K>, key: K, n: number): Counter<K> =
   else next[key] = v;
   return next;
 };
+
+const initialStarterCreatureA = createCreatureInstance('firefox', 'EmberFox Vàng', 3);
+const initialStarterCreatureB = createCreatureInstance('mossling', 'Mossling Mầm', 3);
 
 const initialData = (): GameData => ({
   day: 1,
@@ -129,6 +206,23 @@ const initialData = (): GameData => ({
   tool: 'hoe',
   selectedSeed: null,
   selectedSoil: null,
+  // Creature defaults
+  creatures: [initialStarterCreatureA, initialStarterCreatureB],
+  eggs: [
+    {
+      id: `egg_${Date.now()}`,
+      speciesId: 'aquaslime',
+      generation: 1,
+      daysRemaining: 1,
+      parentA: null,
+      parentB: null,
+      inheritedGrades: { hp: 'B', atk: 'B', def: 'B', mana: 'B', mag: 'B', spd: 'B' },
+    },
+  ],
+  ranchLevel: 1,
+  activeTeam: [initialStarterCreatureA.id, initialStarterCreatureB.id],
+  discoveredCreatures: ['firefox', 'mossling', 'aquaslime'],
+  creatureFoods: { power_berry: 2 },
 });
 
 export const questContext = (s: GameData): QuestContext => ({
@@ -321,7 +415,8 @@ export const useGame = create<GameState>()(
             }
             return { ...p, growth, watered: growth < 100 && autoWater };
           });
-          set({ day: s.day + 1, weather, forecast: rollWeather(), plots });
+          const eggs = s.eggs.map((e) => ({ ...e, daysRemaining: Math.max(0, e.daysRemaining - 1) }));
+          set({ day: s.day + 1, weather, forecast: rollWeather(), plots, eggs });
           bump('days');
           get().sfx('sleep');
           ui().showDay(s.day + 1, weather);
@@ -442,6 +537,211 @@ export const useGame = create<GameState>()(
           set({ gp: s.gp - cost, lab: { ...s.lab, [id]: level + 1 } });
           get().sfx('unlock');
           ui().toast(LAB_UPGRADES[id].icon, `${LAB_UPGRADES[id].name} đã lên cấp ${level + 1}`, 'good');
+        },
+
+        craftCreatureFood: (foodId) => {
+          const s = get();
+          const food = CREATURE_FOODS[foodId];
+          if (!food) return;
+          for (const [crop, req] of Object.entries(food.cropReq)) {
+            if ((s.crops[crop] ?? 0) < req) {
+              ui().toast('❌', `Không đủ ${PLANTS[crop]?.name || crop} để chế tạo ${food.name}`, 'bad');
+              get().sfx('error');
+              return;
+            }
+          }
+          let crops = s.crops;
+          for (const [crop, req] of Object.entries(food.cropReq)) {
+            crops = add(crops, crop, -req);
+          }
+          set({ crops, creatureFoods: add(s.creatureFoods, foodId, 1) });
+          get().sfx('plant');
+          ui().toast(food.icon, `Đã chế tạo 1 ${food.name}!`, 'good');
+        },
+
+        feedCreature: (creatureId, foodId) => {
+          const s = get();
+          const food = CREATURE_FOODS[foodId];
+          if (!food || (s.creatureFoods[foodId] ?? 0) < 1) return;
+
+          const creature = s.creatures.find((c) => c.id === creatureId);
+          if (!creature) return;
+
+          const boost = food.statBoost;
+          const currentStatVal = creature.stats[boost];
+          const newStatVal = Math.round(currentStatVal * (1 + food.boostPercent / 100));
+
+          const updatedCreatures = s.creatures.map((c) => {
+            if (c.id !== creatureId) return c;
+            return {
+              ...c,
+              bond: Math.min(100, c.bond + 15),
+              hunger: Math.min(100, c.hunger + 30),
+              stats: { ...c.stats, [boost]: newStatVal },
+            };
+          });
+
+          set({
+            creatures: updatedCreatures,
+            creatureFoods: add(s.creatureFoods, foodId, -1),
+          });
+
+          get().sfx('coin');
+          ui().toast('🍎', `Đã cho ${creature.name} ăn ${food.name}! +${food.boostPercent}% ${boost.toUpperCase()}`, 'good');
+        },
+
+        hatchEgg: (eggId) => {
+          const s = get();
+          const egg = s.eggs.find((e) => e.id === eggId);
+          if (!egg || egg.daysRemaining > 0) return null;
+
+          const maxCapacity = [5, 10, 20, 30][s.ranchLevel - 1] || 5;
+          if (s.creatures.length >= maxCapacity) {
+            ui().toast('🛖', 'Trại thú đã đầy! Nâng cấp Trại thú để nhận thêm.', 'bad');
+            get().sfx('error');
+            return null;
+          }
+
+          const species = ALL_CREATURES.find((sp) => sp.id === egg.speciesId) || ALL_CREATURES[0];
+          const newCreature = createCreatureInstance(
+            egg.speciesId,
+            species.name,
+            1,
+            egg.generation,
+            egg.parentA,
+            egg.parentB,
+            egg.inheritedGrades
+          );
+
+          const discoveredCreatures = s.discoveredCreatures.includes(species.id)
+            ? s.discoveredCreatures
+            : [...s.discoveredCreatures, species.id];
+
+          set({
+            eggs: s.eggs.filter((e) => e.id !== eggId),
+            creatures: [...s.creatures, newCreature],
+            discoveredCreatures,
+          });
+
+          get().sfx('discover');
+          ui().pushDiscovery(species.id);
+          ui().toast('🥚', `Trứng đã nở thành ${newCreature.name}!`, 'rare');
+
+          return newCreature;
+        },
+
+        breedCreatures: (parentAId, parentBId) => {
+          const s = get();
+          const cA = s.creatures.find((c) => c.id === parentAId);
+          const cB = s.creatures.find((c) => c.id === parentBId);
+          if (!cA || !cB) return null;
+
+          const combo = CREATURE_BREED_COMBOS.find(
+            (cb) => (cb.parentA === cA.speciesId && cb.parentB === cB.speciesId) ||
+                    (cb.parentA === cB.speciesId && cb.parentB === cA.speciesId)
+          );
+
+          const resultSpecies = combo ? combo.result : (Math.random() < 0.5 ? cA.speciesId : cB.speciesId);
+          const gen = Math.max(cA.generation, cB.generation) + 1;
+
+          const inheritedGrades: CreatureGeneGrades = {
+            hp: rollInheritedGrade(cA.geneGrades.hp, cB.geneGrades.hp),
+            atk: rollInheritedGrade(cA.geneGrades.atk, cB.geneGrades.atk),
+            def: rollInheritedGrade(cA.geneGrades.def, cB.geneGrades.def),
+            mana: rollInheritedGrade(cA.geneGrades.mana, cB.geneGrades.mana),
+            mag: rollInheritedGrade(cA.geneGrades.mag, cB.geneGrades.mag),
+            spd: rollInheritedGrade(cA.geneGrades.spd, cB.geneGrades.spd),
+          };
+
+          const species = ALL_CREATURES.find((sp) => sp.id === resultSpecies) || ALL_CREATURES[0];
+          const newEgg: EggInstance = {
+            id: `egg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+            speciesId: species.id,
+            generation: gen,
+            daysRemaining: species.hatchDays,
+            parentA: cA.name,
+            parentB: cB.name,
+            inheritedGrades,
+          };
+
+          set({ eggs: [...s.eggs, newEgg] });
+          get().sfx('breed');
+          ui().toast('🧬', `Tạo thành công Trứng ${species.name} (G${gen})!`, 'good');
+
+          return newEgg;
+        },
+
+        setTeamSlot: (slotIndex, creatureId) => {
+          const s = get();
+          const team = [...s.activeTeam];
+          if (creatureId) {
+            team[slotIndex] = creatureId;
+          } else {
+            team.splice(slotIndex, 1);
+          }
+          set({ activeTeam: team.filter(Boolean) });
+          get().sfx('click');
+        },
+
+        upgradeRanch: () => {
+          const s = get();
+          const costs = [200, 500, 1200];
+          const cost = costs[s.ranchLevel - 1];
+          if (!cost || s.coin < cost) {
+            get().sfx('error');
+            ui().toast('🛖', `Cần ${cost} xu để nâng cấp Trại thú`, 'bad');
+            return;
+          }
+          set({ coin: s.coin - cost, ranchLevel: s.ranchLevel + 1 });
+          get().sfx('unlock');
+          ui().toast('🛖', `Trại thú đã được nâng cấp lên Cấp ${s.ranchLevel + 1}!`, 'good');
+        },
+
+        gainCreatureXp: (creatureId, amount) => {
+          const s = get();
+          const updatedCreatures = s.creatures.map((c) => {
+            if (c.id !== creatureId) return c;
+            let xp = c.xp + amount;
+            let level = c.level;
+            let maxXp = c.maxXp;
+            let stats = { ...c.stats };
+
+            while (xp >= maxXp) {
+              xp -= maxXp;
+              level += 1;
+              maxXp = 100 * level;
+              stats = {
+                ...stats,
+                maxHp: Math.round(stats.maxHp * 1.12),
+                hp: Math.round(stats.maxHp * 1.12),
+                atk: Math.round(stats.atk * 1.1),
+                def: Math.round(stats.def * 1.1),
+                maxMana: Math.round(stats.maxMana * 1.1),
+                mana: Math.round(stats.maxMana * 1.1),
+                mag: Math.round(stats.mag * 1.1),
+                spd: Math.round(stats.spd * 1.05),
+              };
+              ui().toast('⭐', `${c.name} đã thăng lên Cấp ${level}!`, 'rare');
+            }
+            return { ...c, level, xp, maxXp, stats };
+          });
+          set({ creatures: updatedCreatures });
+        },
+
+        addEgg: (speciesId) => {
+          const s = get();
+          const species = ALL_CREATURES.find((sp) => sp.id === speciesId) || ALL_CREATURES[0];
+          const newEgg: EggInstance = {
+            id: `egg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+            speciesId: species.id,
+            generation: 1,
+            daysRemaining: species.hatchDays,
+            parentA: null,
+            parentB: null,
+            inheritedGrades: { hp: 'B', atk: 'B', def: 'B', mana: 'B', mag: 'B', spd: 'B' },
+          };
+          set({ eggs: [...s.eggs, newEgg] });
+          ui().toast('🥚', `Nhận được 1 Trứng ${species.name}!`, 'good');
         },
 
         claimQuest: (id) => {

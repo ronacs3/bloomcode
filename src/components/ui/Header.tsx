@@ -15,6 +15,8 @@ import {
   VolumeX,
   Moon,
   Sparkles,
+  PawPrint,
+  Swords,
 } from 'lucide-react';
 import {
   Tooltip,
@@ -24,7 +26,9 @@ import {
 
 const NAV: { id: View; label: string; icon: React.ReactNode }[] = [
   { id: 'farm', label: 'Nông trại', icon: <Sprout className="w-4 h-4 inline-block" /> },
+  { id: 'ranch', label: 'Trại thú', icon: <PawPrint className="w-4 h-4 inline-block" /> },
   { id: 'lab', label: 'Phòng Gene', icon: <Dna className="w-4 h-4 inline-block" /> },
+  { id: 'battle', label: 'Đấu trường', icon: <Swords className="w-4 h-4 inline-block" /> },
   { id: 'genedex', label: 'GeneDex', icon: <BookOpen className="w-4 h-4 inline-block" /> },
   { id: 'shop', label: 'Cửa hàng', icon: <ShoppingBag className="w-4 h-4 inline-block" /> },
   { id: 'inventory', label: 'Túi đồ', icon: <Backpack className="w-4 h-4 inline-block" /> },
@@ -47,12 +51,14 @@ export default function Header() {
     return QUESTS.some((q) => !s.claimed.includes(q.id) && q.progress(ctx) >= q.target);
   });
   const cropCount = useGame((s) => Object.values(s.crops).reduce<number>((a, b) => a + (b ?? 0), 0));
+  const eggReady = useGame((s) => s.eggs.some((e) => e.daysRemaining <= 0));
 
   const w = WEATHERS[weather];
   const f = WEATHERS[forecast];
 
   const dots: Partial<Record<View, boolean>> = {
     farm: anyReady || claimable,
+    ranch: eggReady && view !== 'ranch',
     lab: cropCount >= 2 && view !== 'lab',
   };
 
